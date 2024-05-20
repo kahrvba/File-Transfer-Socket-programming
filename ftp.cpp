@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
         // Initialize the port to 8080.
         int port = 8080;
         // Initialize the password file to "passwords.txt".
-        std::string password_file = "passwords.txt";
+        std::string password_file = "passwords.cfg";
 
         // Declare an integer variable to store the option character.
         int opt;
