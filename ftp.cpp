@@ -91,3 +91,51 @@ int main(int argc, char* argv[]) {
     // Return EXIT_SUCCESS to indicate that the program has run successfully.
     return 0;
 }
+void handle_client(int client_socket, const std::string& directory, const std::map<std::string, std::string>& users) {
+    char buffer[1024]; // buffer to store incoming data from the client
+    bool authenticated = false; // flag to track if the client is authenticated
+    std::string username; // variable to store the authenticated username
+
+    while (true) {
+        memset(buffer, 0, sizeof(buffer)); // clear the buffer before receiving new data
+        int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0); // receive data from the client.
+        if (bytes_received <= 0) break; // if no data received, exit the loop
+
+        std::istringstream iss(buffer); // create a string stream to parse the received data
+        std::string command; // variable to store the command extracted from the received data
+        iss >> command; // extract the command from the received data
+
+        if (command == "USER") { // check if the command is for user authentication
+            std::string user, pass; // Variables to store the username and password
+            iss >> user >> pass; // extract the username and password from the received data
+            // Validate user credentials
+            if (users.find(user) != users.end() && users.at(user) == pass) {
+                authenticated = true; // set authentication flag to true
+                username = user;  // store the authenticated username
+                send(client_socket, "200 User authenticated.\n", 24, 0); // send authentication success message to the client
+            } else {
+                send(client_socket, "400 User not found or password incorrect.\n", 43, 0); // send authentication failure message
+            }
+        } else if (authenticated) { // if client is authenticated, process commands
+            if (command == "LIST") { // handle the LIST command to list files in the directory
+                std::lock_guard<std::mutex> lock(mtx); // lock to ensure thread safety
+                std::stringstream list; // string stream to build the list of files
+                for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+                    list << entry.path().filename().string() << " " << std::filesystem::file_size(entry.path()) << "\n"; // append file information to the list
+                }
+                list << ".\n"; // add a delimiter to mark the end of the list
+                send(client_socket, list.str().c_str(), list.str().size(), 0);// send the file list to the client
+            } else if (command == "GET") {
+                std::string filename; // Variable to store the filename
+                iss >> filename; // Extract the filename from the received data
+                std::lock_guard<std::mutex> lock(mtx);// Lock to ensure thread safety
+                std::ifstream file(directory + "/" + filename, std::ios::binary); // Open the file for reading in binary mode
+                if (file.is_open()) { // Check if the file is successfully opened
+                    std::stringstream file_content; // String stream to store file content
+                    file_content << file.rdbuf(); // Read the file content into the string stream
+                    file_content << "\r\n.\r\n";// Add a delimiter to mark the end of the file content
+                    send(client_socket, file_content.str().c_str(), file_content.str().size(), 0);// Send the file content to the client
+                    file.close();; // Close the file after sending
+                } else {
+                    send(client_socket, "404 File not found.\n", 20, 0); // Send a message indicating file not found
+                }
