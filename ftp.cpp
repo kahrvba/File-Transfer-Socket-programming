@@ -139,3 +139,17 @@ void handle_client(int client_socket, const std::string& directory, const std::m
                 } else {
                     send(client_socket, "404 File not found.\n", 20, 0); // Send a message indicating file not found
                 }
+	    } else if (command == "PUT") {// Check if the command is to store a file on the server
+                std::string filename;// Variable to store the filename
+                iss >> filename;// extract the filename from the received data
+                std::lock_guard<std::mutex> lock(mtx);// lock to ensure thread safety
+                std::ofstream file(directory + "/" + filename, std::ios::binary);// open the file for writing in binary mode
+                if (file.is_open()) {// check if the file is successfully opened
+                    std::string file_content((std::istreambuf_iterator<char>(iss)), std::istreambuf_iterator<char>());// read the file content from the stream
+                    file.write(file_content.c_str(), file_content.size());// write the file content to the file
+                    file.close(); // close the file after writing
+                    std::string response = "200 " + std::to_string(file_content.size()) + " Bytes transferred.\n";// create a success response message
+                    send(client_socket, response.c_str(), response.size(), 0); // send the success response to the client
+                } else {
+                    send(client_socket, "400 File cannot be saved on server.\n", 37, 0); // send a message indicating file saving failure
+                }
