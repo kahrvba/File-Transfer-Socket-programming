@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
         // Initialize the port to 8080.
         int port = 8080;
         // Initialize the password file to "passwords.txt".
-        std::string password_file = "passwords.cfg";
+        std::string password_file = "passwords.txt";
 
         // Declare an integer variable to store the option character.
         int opt;
@@ -139,7 +139,7 @@ void handle_client(int client_socket, const std::string& directory, const std::m
                 } else {
                     send(client_socket, "404 File not found.\n", 20, 0); // Send a message indicating file not found
                 }
-	    } else if (command == "PUT") {// Check if the command is to store a file on the server
+            } else if (command == "PUT") {// Check if the command is to store a file on the server
                 std::string filename;// Variable to store the filename
                 iss >> filename;// extract the filename from the received data
                 std::lock_guard<std::mutex> lock(mtx);// lock to ensure thread safety
@@ -153,3 +153,72 @@ void handle_client(int client_socket, const std::string& directory, const std::m
                 } else {
                     send(client_socket, "400 File cannot be saved on server.\n", 37, 0); // send a message indicating file saving failure
                 }
+            } else if (command == "DEL") {// sheck if the command is to delete a file
+                std::string filename;// variable to store the filename
+                iss >> filename;// extract the filename from the received data
+                std::lock_guard<std::mutex> lock(mtx);// lock to ensure thread safety
+                if (std::filesystem::remove(directory + "/" + filename)) {// attempt to remove the file
+                    send(client_socket, "200 File deleted.\n", 18, 0);// send a success message for file deletion
+                } else {
+                    send(client_socket, "404 File not found.\n", 20, 0);// send a message indicating file not found
+                }
+            } else if (command == "QUIT") {// check if the command is to quit the session
+                send(client_socket, "Goodbye!\n", 9, 0); // send a goodbye message to the client
+                break;// exit the loop to end the session
+            } else {
+                send(client_socket, "500 Unknown command.\n", 21, 0); // send message for unknown command
+            }
+        } else {
+            send(client_socket, "530 Please log in with USER.\n", 29, 0); // prompt client to log in with USER
+        }
+    }
+    close(client_socket);// close the client socket after processing
+}
+
+void start_server(const std::string& directory, int port, const std::map<std::string, std::string>& users) {
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in server_addr = {AF_INET, htons(port), INADDR_ANY};
+
+    bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
+    listen(server_socket, 5);
+    while (true) {
+        int client_socket = accept(server_socket, nullptr, nullptr);
+        std::thread(handle_client, client_socket, directory, users).detach();
+    }
+    close(server_socket);
+}
+
+std::map<std::string, std::string> parse_users(const std::string& filename) {
+    std::map<std::string, std::string> users;
+    std::ifstream file(filename);
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string username, password;
+        if (std::getline(iss, username, ':') && std::getline(iss, password)) {
+            users[username] = password;
+        }
+    }
+    return users;
+}
+
+void start_client(const std::string& server_ip, int port) {
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in server_addr = {AF_INET, htons(port), inet_addr(server_ip.c_str())};
+
+    connect(sock, (sockaddr*)&server_addr, sizeof(server_addr));
+
+    std::string command;
+    char buffer[1024];
+
+    while (true) {
+        std::getline(std::cin, command);
+        send(sock, command.c_str(), command.size(), 0);
+
+        int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+        if (bytes_received <= 0) break;
+        std::cout.write(buffer, bytes_received);
+    }
+
+    close(sock);
+}
