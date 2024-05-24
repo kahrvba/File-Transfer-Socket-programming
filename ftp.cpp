@@ -202,21 +202,21 @@ std::map<std::string, std::string> parse_users(const std::string& filename) {
     return users;
 }
 
-void start_client(const std::string& server_ip, int port) {
+void start_client() {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in server_addr = {AF_INET, htons(port), inet_addr(server_ip.c_str())};
+    sockaddr_in server_addr = {AF_INET, htons(8080)};
+    inet_pton(AF_INET, "localhost", &server_addr.sin_addr);
 
     connect(sock, (sockaddr*)&server_addr, sizeof(server_addr));
 
-    std::string command;
     char buffer[1024];
+    std::string command = "nc localhost 8080\n";
+    send(sock, command.c_str(), command.size(), 0);
 
-    while (true) {
-        std::getline(std::cin, command);
-        send(sock, command.c_str(), command.size(), 0);
-
-        int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
-        if (bytes_received <= 0) break;
+    int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+    if (bytes_received <= 0) {
+        std::cerr << "Connection closed by server.\n";
+    } else {
         std::cout.write(buffer, bytes_received);
     }
 
