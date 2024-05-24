@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
         // Initialize the port to 8080.
         int port = 8080;
         // Initialize the password file to "passwords.txt".
-        std::string password_file = "passwords.txt";
+        std::string password_file = "passwords.cfg";
 
         // Declare an integer variable to store the option character.
         int opt;
@@ -201,22 +201,21 @@ std::map<std::string, std::string> parse_users(const std::string& filename) {
     }
     return users;
 }
-
-void start_client() {
+void start_client(const std::string& server_ip, int port) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in server_addr = {AF_INET, htons(8080)};
-    inet_pton(AF_INET, "localhost", &server_addr.sin_addr);
+    sockaddr_in server_addr = {AF_INET, htons(port), inet_addr(server_ip.c_str())};
 
     connect(sock, (sockaddr*)&server_addr, sizeof(server_addr));
 
+    std::string command;
     char buffer[1024];
-    std::string command = "nc localhost 8080\n";
-    send(sock, command.c_str(), command.size(), 0);
 
-    int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
-    if (bytes_received <= 0) {
-        std::cerr << "Connection closed by server.\n";
-    } else {
+    while (true) {
+        std::getline(std::cin, command);
+        send(sock, command.c_str(), command.size(), 0);
+
+        int bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+        if (bytes_received <= 0) break;
         std::cout.write(buffer, bytes_received);
     }
 
