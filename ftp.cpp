@@ -121,7 +121,9 @@ void handle_client(int client_socket, const std::string& directory, const std::m
                 std::lock_guard<std::mutex> lock(mtx); // lock to ensure thread safety
                 std::stringstream list; // string stream to build the list of files
                 for (const auto& entry : std::filesystem::directory_iterator(directory)) {
-                    list << entry.path().filename().string() << " " << std::filesystem::file_size(entry.path()) << "\n"; // append file information to the list
+                    if (std::filesystem::is_regular_file(entry)) {
+                        list << entry.path().filename().string() << " " << std::filesystem::file_size(entry.path()) << "\n";
+                    }
                 }
                 list << ".\n"; // add a delimiter to mark the end of the list
                 send(client_socket, list.str().c_str(), list.str().size(), 0);// send the file list to the client
@@ -201,6 +203,7 @@ std::map<std::string, std::string> parse_users(const std::string& filename) {
     }
     return users;
 }
+
 void start_client(const std::string& server_ip, int port) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in server_addr = {AF_INET, htons(port), inet_addr(server_ip.c_str())};
