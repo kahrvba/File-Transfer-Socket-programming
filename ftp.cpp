@@ -113,7 +113,7 @@ void handle_client(int client_socket, const std::string& directory, const std::m
                 authenticated = true; // set authentication flag to true
                 username = user;  // store the authenticated username
                 send(client_socket, "200 User test granted to access.\n", 32, 0); // send authentication success message to the client
-            } else {`
+            } else {
                 send(client_socket, "400 User not found. Please try with another user.\n", 50, 0); // send authentication failure message
             }
         } else if (authenticated) { // if client is authenticated, process commands
