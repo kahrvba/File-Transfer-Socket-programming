@@ -112,9 +112,9 @@ void handle_client(int client_socket, const std::string& directory, const std::m
             if (users.find(user) != users.end() && users.at(user) == pass) {
                 authenticated = true; // set authentication flag to true
                 username = user;  // store the authenticated username
-                send(client_socket, "200 User authenticated.\n", 24, 0); // send authentication success message to the client
+                send(client_socket, "200 User test granted to access.\n", 24, 0); // send authentication success message to the client
             } else {
-                send(client_socket, "400 User not found or password incorrect.\n", 43, 0); // send authentication failure message
+                send(client_socket, "400 User not found. Please try with another user.\n", 43, 0); // send authentication failure message
             }
         } else if (authenticated) { // if client is authenticated, process commands
             if (command == "LIST") { // handle the LIST command to list files in the directory
@@ -183,6 +183,7 @@ void start_server(const std::string& directory, int port, const std::map<std::st
 
     bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
     listen(server_socket, 5);
+    std::cout << "File server listening on localhost port " << port << std::endl;
     while (true) {
         int client_socket = accept(server_socket, nullptr, nullptr);
         std::thread(handle_client, client_socket, directory, users).detach();
